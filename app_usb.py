@@ -3,6 +3,11 @@ import cv2
 import os
 from datetime import datetime
 from PIL import Image, ExifTags
+import piexif  # Ensure piexif is installed for robust EXIF handling
+import logging
+
+# Configure logging for debugging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Quart(__name__)
 
@@ -18,6 +23,7 @@ def generate_frames():
         # Capture frame-by-frame
         success, frame = camera.read()
         if not success:
+            logging.error("Failed to read frame from the camera.")
             break
         else:
             # Encode the frame as JPEG
@@ -59,23 +65,29 @@ async def capture_photo():
         # Generate a timestamped filename
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         photo_path = os.path.join(folder_path, f'photo_{timestamp}.jpg')
-        
+
         # Save the photo using OpenCV
         cv2.imwrite(photo_path, frame)
-        
-        # Add metadata (tags) to the photo
-        with Image.open(photo_path) as img:
-            img = img.convert("RGB")
-            exif_data = img.getexif()
-            
-            # Add custom tag metadata
-            exif_data[ExifTags.TAGS["ImageDescription"]] = tags
-            
-            # Save the updated photo
-            img.save(photo_path, "JPEG", exif=exif_data)
-        
-        return {"message": "Photo captured successfully.", "photo_path": photo_path}, 200
-    return {"error": "Failed to capture photo."}, 500
+        logging.info(f"Photo saved at {photo_path}")
+
+        try:
+            # Add metadata (tags) to the photo using piexif
+            exif_dict = piexif.load(photo_path)
+            exif_dict["0th"][piexif.ImageIFD.ImageDescription] = tags.encode('utf-8')
+            exif_bytes = piexif.dump(exif_dict)
+
+            # Save the updated photo with EXIF
+            with Image.open(photo_path) as img:
+                img.save(photo_path, "jpeg", exif=exif_bytes)
+
+            logging.info(f"EXIF metadata updated for {photo_path} with tags: {tags}")
+            return {"message": "Photo captured successfully.", "photo_path": photo_path}, 200
+        except Exception as e:
+            logging.error(f"Failed to add EXIF metadata: {e}")
+            return {"message": "Photo saved, but failed to update EXIF metadata.", "photo_path": photo_path}, 200
+    else:
+        logging.error("Failed to capture photo from the camera.")
+        return {"error": "Failed to capture photo."}, 500
 
 
 @app.route('/get_photo/<path:filepath>')
@@ -84,6 +96,7 @@ async def get_photo(filepath):
     photo_path = os.path.join(BASE_PHOTO_DIR, filepath)
     if os.path.exists(photo_path):
         return await send_file(photo_path, mimetype='image/jpeg')
+    logging.error(f"Photo not found at {photo_path}")
     return {"error": "Photo not found."}, 404
 
 
@@ -93,6 +106,7 @@ async def start_camera():
     global camera
     if not camera.isOpened():
         camera.open(0)
+        logging.info("Camera started.")
 
 
 @app.after_serving
@@ -101,6 +115,7 @@ async def release_camera():
     global camera
     if camera.isOpened():
         camera.release()
+        logging.info("Camera released.")
 
 
 if __name__ == '__main__':
