@@ -16,8 +16,10 @@
 
     smbpasswd -a <USERNAME>
     
-    sudo systemctl restart smbd
+    systemctl restart smbd
+
+    hostname -I
     
-    visit
+    then visit
     
     smb://<raspberry_pi_ip>/SharedDrive
