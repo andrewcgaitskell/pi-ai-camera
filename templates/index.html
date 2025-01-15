@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Webcam Live Stream</title>
+    <script>
+        async function capturePhoto() {
+            const tags = document.getElementById('tags').value;
+            const folderName = document.getElementById('folder_name').value;
+
+            const formData = new FormData();
+            formData.append('tags', tags);
+            formData.append('folder_name', folderName);
+
+            const response = await fetch('/capture_photo', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const img = document.getElementById('captured-photo');
+                const filepath = data.photo_path.replace(/^photos\//, '');
+                img.src = '/get_photo/' + filepath + '?' + new Date().getTime(); // Prevent caching
+                img.style.display = 'block';
+            } else {
+                alert('Failed to capture photo.');
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Live Webcam Stream</h1>
+    <div>
+        <img src="/video_feed" alt="Live Video Stream" style="border: 1px solid black; max-width: 100%;">
+    </div>
+    <br>
+    <label for="folder_name">Folder Name:</label>
+    <input type="text" id="folder_name" placeholder="Enter folder name (e.g., school/dcps/1970)" value="default_folder">
+    <br><br>
+    <label for="tags">Add Tags:</label>
+    <input type="text" id="tags" placeholder="Enter tags (e.g., portrait, selfie)">
+    <br><br>
+    <button onclick="capturePhoto()">Take Photo</button>
+    <br><br>
+    <h2>Captured Photo</h2>
+    <div>
+        <img id="captured-photo" style="display: none; border: 1px solid black; max-width: 100%;" alt="Captured Photo">
+    </div>
+</body>
+</html>
