@@ -69,7 +69,7 @@ async def capture_photo():
             exif_data = img.getexif()
             
             # Add custom tag metadata
-            exif_data[ExifTags.Base.EXIF_TAGS["ImageDescription"]] = tags
+            exif_data[ExifTags.TAGS["ImageDescription"]] = tags
             
             # Save the updated photo
             img.save(photo_path, "JPEG", exif=exif_data)
