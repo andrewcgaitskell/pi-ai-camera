@@ -1,34 +1,41 @@
 from quart import Quart, Response, render_template, request, send_file
-from picamera2 import Picamera2, Preview
 import os
 from datetime import datetime
-from PIL import Image, ExifTags
-import numpy as np
+from PIL import Image
+import piexif  # Ensure piexif is installed for robust EXIF handling
+import logging
+from picamera2 import Picamera2, Preview
+
+# Configure logging for debugging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Quart(__name__)
-
-# Initialize Picamera2
-picam2 = Picamera2()
-camera_config = picam2.create_video_configuration(main={"size": (640, 480)})
-picam2.configure(camera_config)
-picam2.start()
 
 # Base directory to store all photos
 BASE_PHOTO_DIR = 'photos'
 os.makedirs(BASE_PHOTO_DIR, exist_ok=True)
 
+# Initialize the PiCamera2 instance
+camera = Picamera2()
+camera.configure(camera.create_preview_configuration())
+camera.start()
+
 
 def generate_frames():
-    """Generate frames from the Pi camera for streaming."""
     while True:
-        # Capture frame as a NumPy array
-        frame = picam2.capture_array()
-        _, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
+        # Capture a frame
+        frame = camera.capture_array()
+        if frame is None:
+            logging.error("Failed to read frame from the camera.")
+            break
+        else:
+            # Encode the frame as JPEG
+            _, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
 
-        # Yield the frame for MJPEG streaming
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+            # Yield the frame as part of a multipart HTTP response
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 
 @app.route('/')
@@ -56,25 +63,27 @@ async def capture_photo():
     folder_path = os.path.join(BASE_PHOTO_DIR, sanitized_folder_name)
     os.makedirs(folder_path, exist_ok=True)
 
-    # Capture a still photo
-    photo_array = picam2.capture_array()
+    # Capture the photo
     photo_path = os.path.join(folder_path, f'photo_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg')
+    camera.capture_file(photo_path)
 
-    # Save the photo using OpenCV
-    cv2.imwrite(photo_path, photo_array)
+    logging.info(f"Photo saved at {photo_path}")
 
-    # Add metadata (tags) to the photo
-    with Image.open(photo_path) as img:
-        img = img.convert("RGB")
-        exif_data = img.getexif()
+    try:
+        # Add metadata (tags) to the photo using piexif
+        exif_dict = piexif.load(photo_path)
+        exif_dict["0th"][piexif.ImageIFD.ImageDescription] = tags.encode('utf-8')
+        exif_bytes = piexif.dump(exif_dict)
 
-        # Add custom tag metadata
-        exif_data[ExifTags.Base.EXIF_TAGS["ImageDescription"]] = tags
+        # Save the updated photo with EXIF
+        with Image.open(photo_path) as img:
+            img.save(photo_path, "jpeg", exif=exif_bytes)
 
-        # Save the updated photo
-        img.save(photo_path, "JPEG", exif=exif_data)
-
-    return {"message": "Photo captured successfully.", "photo_path": photo_path}, 200
+        logging.info(f"EXIF metadata updated for {photo_path} with tags: {tags}")
+        return {"message": "Photo captured successfully.", "photo_path": photo_path}, 200
+    except Exception as e:
+        logging.error(f"Failed to add EXIF metadata: {e}")
+        return {"message": "Photo saved, but failed to update EXIF metadata.", "photo_path": photo_path}, 200
 
 
 @app.route('/get_photo/<path:filepath>')
@@ -83,7 +92,28 @@ async def get_photo(filepath):
     photo_path = os.path.join(BASE_PHOTO_DIR, filepath)
     if os.path.exists(photo_path):
         return await send_file(photo_path, mimetype='image/jpeg')
+    logging.error(f"Photo not found at {photo_path}")
     return {"error": "Photo not found."}, 404
+
+
+@app.before_serving
+async def start_camera():
+    """Start the camera when the server starts."""
+    global camera
+    if not camera:
+        camera = Picamera2()
+        camera.configure(camera.create_preview_configuration())
+        camera.start()
+        logging.info("Camera started.")
+
+
+@app.after_serving
+async def release_camera():
+    """Release the camera when the server stops."""
+    global camera
+    if camera:
+        camera.stop()
+        logging.info("Camera released.")
 
 
 if __name__ == '__main__':
