@@ -1,6 +1,5 @@
 quart
 opencv-python
 pillow
-libcamera
 picamera2
 piexif
