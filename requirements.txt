@@ -1,0 +1,4 @@
+quart
+opencv-python
+pillow
+picamera2
