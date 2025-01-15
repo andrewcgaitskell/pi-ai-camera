@@ -6,6 +6,7 @@ apt install -y libgdk-pixbuf2.0-dev libpango1.0-dev libgtk2.0-dev libgtk-3-dev
 apt install -y libatlas-base-dev gfortran python3-dev python3-pip
 apt install -y libcap-dev
 apt install -y libcamera-apps
+apt install -y libcamera
 apt install -y samba samba-common-bin
 
 
