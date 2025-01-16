@@ -9,3 +9,6 @@ Started with raspian lite
 
 https://pimylifeup.com/raspberry-pi-samba/
 
+# RTG!
+
+https://www.raspberrypi.com/news/how-to-get-started-with-your-raspberry-pi-ai-camera/
