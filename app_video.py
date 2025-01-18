@@ -35,11 +35,14 @@ async def video_feed():
             request = picam2.capture_request()
             try:
                 # Encode the lores stream directly using the request object
-                success, encoded_frame = encoder.encode(request, "lores")
-                if success:
-                    # Convert to Base64 for WebSocket transmission
-                    frame_data = base64.b64encode(encoded_frame).decode('utf-8')
-                    await websocket.send(frame_data)
+                encoded_frame = encoder.encode(request, "lores")
+                if encoded_frame is None:
+                    logging.warning("Encoded frame is None.")
+                    continue
+
+                # Convert to Base64 for WebSocket transmission
+                frame_data = base64.b64encode(encoded_frame).decode('utf-8')
+                await websocket.send(frame_data)
             finally:
                 # Release the request to avoid memory leaks
                 request.release()
@@ -47,6 +50,7 @@ async def video_feed():
         logging.info("WebSocket connection closed.")
     except Exception as e:
         logging.error(f"Error in video feed: {e}")
+
 
 
 
