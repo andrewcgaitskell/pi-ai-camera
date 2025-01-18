@@ -27,7 +27,7 @@ sleep(2)
 @app.route('/')
 async def index():
     """Render the homepage."""
-    return await render_template('index.html')
+    return await render_template('index_photo.html')
 
 @app.websocket('/video_feed')
 async def video_feed():
