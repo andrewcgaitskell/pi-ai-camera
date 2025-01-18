@@ -18,14 +18,28 @@ async def safe_stop_camera():
     """Safely stop and release the camera."""
     global camera
     if camera:
-        camera.stop()
-        logging.info("Camera stopped and released.")
-        camera = None
+        try:
+            camera.stop()
+            logging.info("Camera stopped and released.")
+        except Exception as e:
+            logging.error(f"Error while stopping the camera: {e}")
+        finally:
+            camera = None
 
-def handle_exit_signal(loop, task):
-    """Handle termination signals."""
-    logging.info("Received exit signal.")
-    loop.run_until_complete(task)
+def initialize_camera():
+    """Initialize and start the camera, resetting if needed."""
+    global camera
+    try:
+        if not camera:
+            camera = Picamera2()
+            camera.configure(camera.create_preview_configuration())
+            camera.start()
+            logging.info("Camera started successfully.")
+    except Exception as e:
+        logging.error(f"Error initializing the camera: {e}")
+        safe_stop_camera()  # Ensure the camera is stopped before retrying
+        logging.info("Retrying to initialize the camera.")
+        asyncio.run(initialize_camera())  # Retry initialization
 
 @app.route('/')
 async def index():
@@ -62,12 +76,7 @@ async def video_feed():
 @app.before_serving
 async def start_camera():
     """Start the camera when the server starts."""
-    global camera
-    if not camera:
-        camera = Picamera2()
-        camera.configure(camera.create_preview_configuration())
-        camera.start()
-        logging.info("Camera started.")
+    initialize_camera()
 
 @app.after_serving
 async def cleanup():
