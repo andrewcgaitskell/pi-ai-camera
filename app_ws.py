@@ -14,6 +14,7 @@ app = Quart(__name__)
 
 # Initialize the PiCamera2 instance
 camera = None
+reset_attempted = False  # Track if a reset has already been attempted
 
 async def reset_camera():
     """Reset the camera hardware."""
@@ -40,20 +41,26 @@ async def safe_stop_camera():
 
 async def initialize_camera():
     """Initialize and start the camera, resetting if needed."""
-    global camera
+    global camera, reset_attempted
     try:
         if not camera:
             camera = Picamera2()
             camera.configure(camera.create_preview_configuration())
             camera.start()
             logging.info("Camera started successfully.")
+            reset_attempted = False  # Reset flag after a successful start
     except Exception as e:
         logging.error(f"Error initializing the camera: {e}")
-        await safe_stop_camera()
-        logging.info("Resetting the camera and retrying initialization.")
-        await reset_camera()
-        await asyncio.sleep(1)  # Allow time for the hardware to reset
-        await initialize_camera()  # Retry initialization
+        if not reset_attempted:
+            await safe_stop_camera()
+            logging.info("Resetting the camera and retrying initialization.")
+            await reset_camera()
+            await asyncio.sleep(1)  # Allow time for the hardware to reset
+            reset_attempted = True  # Mark that a reset has been attempted
+            await initialize_camera()  # Retry initialization
+        else:
+            logging.critical("Failed to initialize the camera after a reset attempt.")
+            raise RuntimeError("Camera initialization failed after reset.")
 
 def handle_exit_signal(loop):
     """Handle termination signals."""
