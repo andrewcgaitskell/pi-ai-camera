@@ -13,7 +13,7 @@ app = Quart(__name__)
 picam2 = Picamera2()
 main_stream = {"size": [dim // 2 for dim in picam2.sensor_resolution]}  # Half-resolution for photos
 lores_stream = {"size": (640, 480)}  # Low-resolution for video feed
-video_config = picam2.create_video_configuration(main_stream=main_stream, lores=lores_stream, encode="lores")
+video_config = picam2.create_video_configuration(main_stream, lores_stream, encode="lores")
 picam2.configure(video_config)
 picam2.start()
 
