@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera App</title>
+    <script>
+        let ws;
+
+        async function startVideo() {
+            ws = new WebSocket(`ws://${window.location.host}/video_feed`);
+            ws.onmessage = (event) => {
+                const img = document.getElementById("video");
+                img.src = `data:image/jpeg;base64,${event.data}`;
+            };
+        }
+
+        async function capturePhoto() {
+            const response = await fetch('/capture_photo', { method: 'POST' });
+            const result = await response.json();
+            alert(result.message);
+        }
+
+        window.onload = startVideo;
+    </script>
+</head>
+<body>
+    <h1>Camera App</h1>
+    <img id="video" alt="Live Video Feed" width="640" height="360" />
+    <button onclick="capturePhoto()">Capture Photo</button>
+</body>
+</html>
