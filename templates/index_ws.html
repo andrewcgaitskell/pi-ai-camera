@@ -1,76 +1,62 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Webcam Live Stream</title>
-    <script>
-        // Initialize the WebSocket for live video streaming
-        let ws;
-
-        function startWebSocket() {
-            ws = new WebSocket(`ws://${window.location.host}/video_feed`);
-
-            ws.onmessage = (event) => {
-                const videoFeed = document.getElementById('live-video-stream');
-                // Update the video feed image source with the received frame
-                videoFeed.src = `data:image/jpeg;base64,${event.data}`;
-            };
-
-            ws.onerror = (error) => {
-                console.error("WebSocket error:", error);
-                alert("WebSocket error. Check the console for details.");
-            };
-
-            ws.onclose = () => {
-                console.warn("WebSocket connection closed. Reconnecting...");
-                setTimeout(startWebSocket, 1000); // Attempt to reconnect after 1 second
-            };
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Video Stream</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #000;
         }
-
-        async function capturePhoto() {
-            const tags = document.getElementById('tags').value;
-            const folderName = document.getElementById('folder_name').value;
-
-            const formData = new FormData();
-            formData.append('tags', tags);
-            formData.append('folder_name', folderName);
-
-            const response = await fetch('/capture_photo', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const img = document.getElementById('captured-photo');
-                const filepath = data.photo_path.replace(/^photos\//, '');
-                img.src = '/get_photo/' + filepath + '?' + new Date().getTime(); // Prevent caching
-                img.style.display = 'block';
-            } else {
-                alert('Failed to capture photo.');
-            }
+        canvas {
+            border: 2px solid #fff;
         }
-
-        // Start the WebSocket connection when the page loads
-        window.onload = startWebSocket;
-    </script>
+    </style>
 </head>
 <body>
-    <h1>Live Webcam Stream</h1>
-    <div>
-        <img id="live-video-stream" alt="Live Video Stream" style="border: 1px solid black; max-width: 100%;">
-    </div>
-    <br>
-    <label for="folder_name">Folder Name:</label>
-    <input type="text" id="folder_name" placeholder="Enter folder name (e.g., school/dcps/1970)" value="default_folder">
-    <br><br>
-    <label for="tags">Add Tags:</label>
-    <input type="text" id="tags" placeholder="Enter tags (e.g., portrait, selfie)">
-    <br><br>
-    <button onclick="capturePhoto()">Take Photo</button>
-    <br><br>
-    <h2>Captured Photo</h2>
-    <div>
-        <img id="captured-photo" style="display: none; border: 1px solid black; max-width: 100%;" alt="Captured Photo">
-    </div>
+    <canvas id="videoCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('videoCanvas');
+        const context = canvas.getContext('2d');
+        const websocketUrl = `ws://${window.location.host}/video_feed`;
+
+        // Adjust canvas size to fit the video frames
+        function setCanvasSize(width, height) {
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        const socket = new WebSocket(websocketUrl);
+
+        socket.onmessage = (event) => {
+            // Decode the base64 frame
+            const img = new Image();
+            img.src = 'data:image/jpeg;base64,' + event.data;
+
+            img.onload = () => {
+                if (!canvas.width || !canvas.height) {
+                    setCanvasSize(img.width, img.height);
+                }
+                context.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+        };
+
+        socket.onopen = () => {
+            console.log('WebSocket connection established.');
+        };
+
+        socket.onclose = () => {
+            console.log('WebSocket connection closed.');
+        };
+
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+    </script>
 </body>
 </html>
