@@ -11,8 +11,13 @@ app = Quart(__name__)
 
 # Initialize the PiCamera2 instance
 camera = Picamera2()
-camera.configure(camera.create_preview_configuration())
-camera.set_controls({"AwbEnable": True})
+#camera.configure(camera.create_preview_configuration())
+
+camera.set_controls({
+    "AwbEnable": False,  # Disable AWB
+    "ColourGains": (2.0, 1.5)  # Adjust red (first value) and blue (second value) gains
+})
+
 camera.start()
 
 @app.route('/')
