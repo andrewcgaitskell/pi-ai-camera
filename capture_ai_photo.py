@@ -23,8 +23,9 @@ def capture_photo(output_file="photo.jpg"):
 
 if __name__ == "__main__":
     # Ensure the output directory exists
-    output_path = "photo.jpg"
-    if not os.path.exists(os.path.dirname(output_path)):
-        os.makedirs(os.path.dirname(output_path))
-
-    capture_photo(output_path)
+    output_folder = "/home/scanpi/photos"
+    if not os.path.exists(os.path.dirname(output_folder)):
+        os.makedirs(os.path.dirname(output_folder))
+    photo_name = "photo.jpg"
+    full_output = output_path  + "/" + photo_name
+    capture_photo(full_output)
