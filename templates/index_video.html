@@ -6,7 +6,7 @@
     <script>
         let ws;
         function startVideoFeed() {
-            ws = new WebSocket("ws://localhost:5000/video_feed");
+            ws = new WebSocket("ws://192.168.1.45:5000/video_feed");
             ws.onmessage = (event) => {
                 const img = document.getElementById("videoPreview");
                 img.src = "data:image/jpeg;base64," + event.data;
