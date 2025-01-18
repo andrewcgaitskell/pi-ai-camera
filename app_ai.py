@@ -5,6 +5,7 @@ from PIL import Image
 import piexif  # Ensure piexif is installed for robust EXIF handling
 import logging
 from picamera2 import Picamera2, Preview
+import cv2
 
 # Configure logging for debugging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,19 +24,27 @@ camera.start()
 
 def generate_frames():
     while True:
-        # Capture a frame
-        frame = camera.capture_array()
-        if frame is None:
-            logging.error("Failed to read frame from the camera.")
-            break
-        else:
+        try:
+            # Capture a frame
+            frame = camera.capture_array()
+            if frame is None:
+                logging.error("Failed to read frame from the camera.")
+                break
+            
             # Encode the frame as JPEG
-            _, buffer = cv2.imencode('.jpg', frame)
+            success, buffer = cv2.imencode('.jpg', frame)
+            if not success:
+                logging.error("Failed to encode frame as JPEG.")
+                continue
+
             frame = buffer.tobytes()
 
             # Yield the frame as part of a multipart HTTP response
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        except Exception as e:
+            logging.error(f"Error generating frame: {e}")
+            break
 
 
 @app.route('/')
