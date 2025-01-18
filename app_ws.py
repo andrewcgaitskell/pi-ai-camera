@@ -19,6 +19,9 @@ camera = Picamera2()
 video_config = camera.create_video_configuration({"size": (1280, 720)})
 camera.configure(video_config)
 
+camera.set_controls({"AeEnable": False})
+
+
 # Start the camera
 camera.start()
 
