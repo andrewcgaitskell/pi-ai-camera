@@ -37,7 +37,7 @@ async def video_feed():
         while True:
             # Capture and process frames
             frame = camera.capture_array()
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Convert for OpenCV processing
+            # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Convert for OpenCV processing
 
             # Encode frame as JPEG
             success, buffer = cv2.imencode('.jpg', frame)
