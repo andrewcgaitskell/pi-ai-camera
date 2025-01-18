@@ -14,15 +14,13 @@ app = Quart(__name__)
 camera = Picamera2()
 
 # Configure the camera for live streaming
-camera.configure(camera.create_preview_configuration())
+# camera.configure(camera.create_preview_configuration())
+
+video_config = camera.create_video_configuration({"size": (1280, 720)})
+camera.configure(video_config)
 
 # Start the camera
 camera.start()
-
-camera.set_controls({
-    "AwbEnable": False,         # Disable AWB
-    "ColourGains": (2.0, 1.2)   # Adjust red (2.0) and blue (1.2) gains
-})
 
 # Allow the camera to stabilize
 sleep(2)
