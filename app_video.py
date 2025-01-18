@@ -1,8 +1,7 @@
-from quart import Quart, websocket, jsonify
+from quart import Quart, websocket, jsonify, render_template
 from picamera2 import Picamera2
 from picamera2.encoders import JpegEncoder
 import asyncio
-import time
 import base64
 import logging
 
@@ -19,6 +18,12 @@ video_config = picam2.create_video_configuration(main_stream, lores_stream, enco
 picam2.configure(video_config)
 
 picam2.start()
+
+@app.route('/')
+async def index():
+    """Serve the homepage template."""
+    logging.info("Serving index page.")
+    return await render_template('index_video.html')
 
 @app.websocket('/video_feed')
 async def video_feed():
