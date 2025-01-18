@@ -3,6 +3,8 @@ from picamera2 import Picamera2
 import cv2
 import base64
 import logging
+import asyncio
+import signal
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -10,9 +12,20 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 app = Quart(__name__)
 
 # Initialize the PiCamera2 instance
-camera = Picamera2()
-camera.configure(camera.create_preview_configuration())
-camera.start()
+camera = None
+
+async def safe_stop_camera():
+    """Safely stop and release the camera."""
+    global camera
+    if camera:
+        camera.stop()
+        logging.info("Camera stopped and released.")
+        camera = None
+
+def handle_exit_signal(loop, task):
+    """Handle termination signals."""
+    logging.info("Received exit signal.")
+    loop.run_until_complete(task)
 
 @app.route('/')
 async def index():
@@ -22,8 +35,9 @@ async def index():
 @app.websocket('/video_feed')
 async def video_feed():
     """WebSocket endpoint to stream video frames."""
-    while True:
-        try:
+    global camera
+    try:
+        while True:
             # Capture a frame
             frame = camera.capture_array()
 
@@ -38,9 +52,12 @@ async def video_feed():
 
             # Send the frame over WebSocket
             await websocket.send(frame_data)
-        except Exception as e:
-            logging.error(f"Error during video feed streaming: {e}")
-            break
+    except asyncio.CancelledError:
+        logging.info("WebSocket connection cancelled.")
+    except Exception as e:
+        logging.error(f"Error during video feed streaming: {e}")
+    finally:
+        logging.info("WebSocket connection closed.")
 
 @app.before_serving
 async def start_camera():
@@ -53,13 +70,21 @@ async def start_camera():
         logging.info("Camera started.")
 
 @app.after_serving
-async def release_camera():
-    """Release the camera when the server stops."""
-    global camera
-    if camera:
-        camera.stop()
-        logging.info("Camera released.")
+async def cleanup():
+    """Release resources when the server stops."""
+    await safe_stop_camera()
 
 if __name__ == '__main__':
+    # Create a cleanup task
+    loop = asyncio.get_event_loop()
+    cleanup_task = asyncio.ensure_future(safe_stop_camera())
+
+    # Attach signal handlers
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, handle_exit_signal, loop, cleanup_task)
+
     # Run the Quart app
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    try:
+        app.run(host='0.0.0.0', port=5000, debug=True)
+    finally:
+        loop.run_until_complete(cleanup_task)
