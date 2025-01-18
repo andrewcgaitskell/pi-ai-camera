@@ -27,5 +27,5 @@ if __name__ == "__main__":
     if not os.path.exists(os.path.dirname(output_folder)):
         os.makedirs(os.path.dirname(output_folder))
     photo_name = "photo.jpg"
-    full_output = output_path  + "/" + photo_name
+    full_output = output_folder  + "/" + photo_name
     capture_photo(full_output)
