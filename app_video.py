@@ -1,7 +1,6 @@
 from quart import Quart, websocket, jsonify, render_template
 from picamera2 import Picamera2
-from picamera2.encoders import JpegEncoder
-import asyncio
+import cv2
 import base64
 import logging
 
@@ -10,34 +9,39 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 app = Quart(__name__)
 
+# Configure Picamera2
 picam2 = Picamera2()
-half_resolution = [dim // 2 for dim in picam2.sensor_resolution]
-main_stream = {"size": half_resolution}
-lores_stream = {"size": (640, 480)}
-video_config = picam2.create_video_configuration(main_stream, lores_stream, encode="lores")
+main_stream = {"size": [dim // 2 for dim in picam2.sensor_resolution]}  # Half-resolution for photos
+lores_stream = {"size": (640, 480)}  # Low-resolution for video feed
+video_config = picam2.create_video_configuration(main_stream=main_stream, lores=lores_stream, encode="lores")
 picam2.configure(video_config)
-
 picam2.start()
 
 @app.route('/')
 async def index():
     """Serve the homepage template."""
-    logging.info("Serving index page.")
     return await render_template('index_video.html')
 
 @app.websocket('/video_feed')
 async def video_feed():
     """WebSocket endpoint for streaming video frames."""
-    encoder = JpegEncoder()
     try:
         while True:
             # Capture a frame using the request object
             request = picam2.capture_request()
             try:
-                # Encode the lores stream directly using the request object
-                encoded_frame = encoder.encode(request, "lores")
-                if encoded_frame is None:
-                    logging.warning("Encoded frame is None.")
+                # Get the lores frame as a numpy array
+                lores_frame = request.make_array("lores")
+                if lores_frame is None:
+                    logging.warning("Lores frame is None.")
+                    continue
+
+                logging.debug(f"Lores frame shape: {lores_frame.shape}")
+
+                # Encode the frame as JPEG using OpenCV
+                success, encoded_frame = cv2.imencode(".jpg", lores_frame)
+                if not success:
+                    logging.warning("Failed to encode lores frame.")
                     continue
 
                 # Convert to Base64 for WebSocket transmission
@@ -50,9 +54,6 @@ async def video_feed():
         logging.info("WebSocket connection closed.")
     except Exception as e:
         logging.error(f"Error in video feed: {e}")
-
-
-
 
 @app.route('/capture_photo', methods=['POST'])
 async def capture_photo():
