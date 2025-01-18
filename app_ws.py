@@ -26,7 +26,7 @@ async def safe_stop_camera():
         finally:
             camera = None
 
-def initialize_camera():
+async def initialize_camera():
     """Initialize and start the camera, resetting if needed."""
     global camera
     try:
@@ -37,9 +37,9 @@ def initialize_camera():
             logging.info("Camera started successfully.")
     except Exception as e:
         logging.error(f"Error initializing the camera: {e}")
-        asyncio.run(safe_stop_camera())  # Ensure the camera is stopped before retrying
+        await safe_stop_camera()  # Ensure the camera is stopped before retrying
         logging.info("Retrying to initialize the camera.")
-        asyncio.run(initialize_camera())  # Retry initialization
+        await initialize_camera()  # Retry initialization
 
 def handle_exit_signal(loop, task):
     """Handle termination signals."""
@@ -81,7 +81,7 @@ async def video_feed():
 @app.before_serving
 async def start_camera():
     """Start the camera when the server starts."""
-    initialize_camera()
+    await initialize_camera()
 
 @app.after_serving
 async def cleanup():
