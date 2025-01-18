@@ -15,6 +15,8 @@
         }
         canvas {
             border: 2px solid #fff;
+            max-width: 100%;
+            max-height: 100%;
         }
     </style>
 </head>
@@ -25,11 +27,8 @@
         const context = canvas.getContext('2d');
         const websocketUrl = `ws://${window.location.host}/video_feed`;
 
-        // Adjust canvas size to fit the video frames
-        function setCanvasSize(width, height) {
-            canvas.width = width;
-            canvas.height = height;
-        }
+        let videoWidth = 0;
+        let videoHeight = 0;
 
         const socket = new WebSocket(websocketUrl);
 
@@ -39,9 +38,18 @@
             img.src = 'data:image/jpeg;base64,' + event.data;
 
             img.onload = () => {
-                if (!canvas.width || !canvas.height) {
-                    setCanvasSize(img.width, img.height);
+                // Set the canvas size only once, using the first frame's dimensions
+                if (videoWidth === 0 || videoHeight === 0) {
+                    videoWidth = img.width;
+                    videoHeight = img.height;
+
+                    // Set canvas size and maintain the aspect ratio
+                    canvas.width = videoWidth;
+                    canvas.height = videoHeight;
                 }
+
+                // Draw the image on the canvas
+                context.clearRect(0, 0, canvas.width, canvas.height);
                 context.drawImage(img, 0, 0, canvas.width, canvas.height);
             };
         };
