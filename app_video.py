@@ -1,135 +1,60 @@
-from quart import Quart, render_template, jsonify, websocket
+from quart import Quart, websocket, jsonify
 from picamera2 import Picamera2
-import cv2
-import base64
-import os
-from time import strftime
+from picamera2.encoders import JpegEncoder
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
+import time
+import base64
 import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logging.getLogger("picamera2").setLevel(logging.WARNING)
 
 app = Quart(__name__)
-camera = Picamera2()
-executor = ThreadPoolExecutor()
-camera_lock = asyncio.Lock()
-video_feed_running = False  # Flag to track video feed status
 
-# Camera configurations
-photo_config = camera.create_still_configuration({"size": (4056, 3040)})
-video_config = camera.create_video_configuration({"size": (640, 480)})
+picam2 = Picamera2()
+half_resolution = [dim // 2 for dim in picam2.sensor_resolution]
+main_stream = {"size": half_resolution}
+lores_stream = {"size": (640, 480)}
+video_config = picam2.create_video_configuration(main_stream, lores_stream, encode="lores")
+picam2.configure(video_config)
 
-@app.route('/')
-async def index():
-    """Render the homepage."""
-    logging.info("Rendering index page.")
-    return await render_template('index_video.html')
+picam2.start()
 
 @app.websocket('/video_feed')
 async def video_feed():
-    """WebSocket endpoint to stream video frames."""
-    global video_feed_running
-    async with camera_lock:
-        try:
-            logging.info("Starting video feed.")
-            video_feed_running = True
-            camera.stop()
-            await asyncio.get_event_loop().run_in_executor(executor, camera.configure, video_config)
-            camera.start()
+    """WebSocket endpoint for streaming video frames."""
+    encoder = JpegEncoder()
+    try:
+        while True:
+            request = picam2.capture_request()
+            buffer = request.lores_array  # Capture from low-res stream
+            request.release()
 
-            while video_feed_running:
-                try:
-                    # Capture a frame in video mode
-                    frame = await asyncio.get_event_loop().run_in_executor(
-                        executor, camera.capture_array
-                    )
-                    if frame is None:
-                        logging.warning("Failed to capture video frame.")
-                        continue
-
-                    # Convert the frame to JPEG and Base64 encode
-                    success, buffer = cv2.imencode('.jpg', frame)
-                    if not success:
-                        logging.warning("Failed to encode video frame.")
-                        continue
-                    frame_data = base64.b64encode(buffer).decode('utf-8')
-
-                    # Send the frame over WebSocket
-                    await websocket.send(frame_data)
-                except asyncio.CancelledError:
-                    logging.info("WebSocket connection closed by client.")
-                    break
-                except Exception as e:
-                    logging.error(f"Error during video streaming: {e}")
-                    break
-        finally:
-            logging.info("Stopping video feed and reconfiguring for photo mode.")
-            video_feed_running = False
-            camera.stop()
-            await asyncio.get_event_loop().run_in_executor(executor, camera.configure, photo_config)
-            camera.start()
+            # Encode frame as JPEG
+            encoded_frame = encoder.encode(buffer)
+            if encoded_frame:
+                # Convert to Base64 for WebSocket transmission
+                frame_data = base64.b64encode(encoded_frame).decode('utf-8')
+                await websocket.send(frame_data)
+    except asyncio.CancelledError:
+        logging.info("Video feed stopped.")
+    except Exception as e:
+        logging.error(f"Error in video feed: {e}")
 
 @app.route('/capture_photo', methods=['POST'])
 async def capture_photo():
     """Capture a high-resolution photo."""
-    global video_feed_running
-    async with camera_lock:
-        try:
-            if video_feed_running:
-                logging.info("Stopping video feed for photo capture.")
-                video_feed_running = False
+    try:
+        logging.info("Capturing high-resolution photo.")
+        request = picam2.capture_request()
+        request.save("main", "photo.jpg")  # Save from high-resolution stream
+        request.release()
+        logging.info("Photo captured successfully.")
 
-            logging.info("Starting photo capture process.")
-            camera.stop()
-            await asyncio.get_event_loop().run_in_executor(executor, camera.configure, photo_config)
-            camera.start()
-
-            # Capture high-resolution photo
-            frame = await asyncio.get_event_loop().run_in_executor(executor, camera.capture_array)
-            if frame is None:
-                logging.error("Failed to capture a valid frame.")
-                return jsonify({"error": "Capture failed."}), 500
-
-            # Add timestamp overlay
-            timestamp = strftime("%Y-%m-%d_%H-%M-%S")
-            cv2.putText(frame, timestamp, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-
-            # Save photo
-            filename = f"photo_{timestamp}.jpg"
-            file_path = os.path.join('photos', filename)
-            os.makedirs('photos', exist_ok=True)
-            if not cv2.imwrite(file_path, frame):
-                logging.error(f"Failed to save photo at {file_path}.")
-                return jsonify({"error": "Failed to save photo."}), 500
-            logging.info(f"Photo saved at {file_path}.")
-
-            return jsonify({"message": "Photo captured successfully!", "file": filename})
-
-        except Exception as e:
-            logging.error(f"Error capturing photo: {e}")
-            return jsonify({"error": f"Failed to capture photo. Reason: {e}"}), 500
-
-@app.before_serving
-async def start_camera():
-    """Start the camera when the server starts."""
-    global camera
-    if not camera:
-        camera = Picamera2()
-        camera.configure(photo_config)
-        camera.start()
-        logging.info("Camera started.")
-
-@app.after_serving
-async def release_camera():
-    """Release the camera when the server stops."""
-    global camera
-    if camera:
-        camera.stop()
-        logging.info("Camera released.")
+        return jsonify({"message": "Photo captured successfully!", "file": "photo.jpg"})
+    except Exception as e:
+        logging.error(f"Error capturing photo: {e}")
+        return jsonify({"error": f"Failed to capture photo. Reason: {e}"}), 500
 
 if __name__ == '__main__':
-    logging.info("Starting Quart app.")
     app.run(host='0.0.0.0', port=5000, debug=True)
