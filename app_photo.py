@@ -65,6 +65,10 @@ async def capture_photo():
     try:
         logging.info("Starting photo capture process.")
 
+        # Stop the camera before reconfiguring
+        camera.stop()
+        logging.debug("Camera stopped for photo capture configuration.")
+
         # Reconfigure camera for still capture
         await asyncio.get_event_loop().run_in_executor(executor, camera.configure, photo_config)
         logging.debug("Camera configured for photo capture.")
@@ -95,6 +99,7 @@ async def capture_photo():
     except Exception as e:
         logging.error(f"Error capturing photo: {e}")
         return jsonify({"error": f"Failed to capture photo. Reason: {e}"}), 500
+
 
 @app.before_serving
 async def start_camera():
