@@ -9,7 +9,8 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.getLogger("picamera2").setLevel(logging.WARNING)
 
 app = Quart(__name__)
 camera = Picamera2()
@@ -19,9 +20,6 @@ camera_lock = asyncio.Lock()
 # Camera configurations
 photo_config = camera.create_still_configuration({"size": (4056, 3040)})
 video_config = camera.create_video_configuration({"size": (640, 480)})
-
-camera.configure(photo_config)
-camera.start()
 
 @app.route('/')
 async def index():
@@ -72,29 +70,33 @@ async def capture_photo():
     async with camera_lock:
         try:
             logging.info("Starting photo capture process.")
+            
+            # Ensure the camera is configured for still capture
+            camera.stop()
+            await asyncio.get_event_loop().run_in_executor(executor, camera.configure, photo_config)
+            camera.start()
+
             # Capture high-resolution photo
-            frame = await asyncio.get_event_loop().run_in_executor(
-                executor, camera.capture_array
-            )
+            frame = await asyncio.get_event_loop().run_in_executor(executor, camera.capture_array)
             if frame is None:
                 logging.error("Failed to capture a valid frame.")
                 return jsonify({"error": "Capture failed."}), 500
 
             logging.debug(f"Captured frame with shape: {frame.shape}")
 
-            # Add a timestamp overlay
+            # Add timestamp overlay
             timestamp = strftime("%Y-%m-%d_%H-%M-%S")
             cv2.putText(frame, timestamp, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-            # Save the photo
+            # Save photo
             filename = f"photo_{timestamp}.jpg"
             file_path = os.path.join('photos', filename)
             os.makedirs('photos', exist_ok=True)
             if not cv2.imwrite(file_path, frame):
                 logging.error(f"Failed to save photo at {file_path}.")
                 return jsonify({"error": "Failed to save photo."}), 500
-
             logging.info(f"Photo saved at {file_path}.")
+
             return jsonify({"message": "Photo captured successfully!", "file": filename})
 
         except Exception as e:
