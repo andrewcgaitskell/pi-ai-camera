@@ -58,37 +58,37 @@ async def video_feed():
 @app.route('/capture_photo', methods=['POST'])
 async def capture_photo():
     """Capture a timestamped photo with 12MP quality."""
-    try:
-        logging.info("Starting photo capture process.")
+    #try:
+    logging.info("Starting photo capture process.")
 
-        # Reconfigure camera for still capture
-        camera.configure(photo_config)
-        logging.debug("Camera configured for photo capture.")
+    # Reconfigure camera for still capture
+    camera.configure(photo_config)
+    logging.debug("Camera configured for photo capture.")
 
-        # Capture a frame
-        frame = camera.capture_array()
-        logging.debug("Photo frame captured.")
+    # Capture a frame
+    frame = camera.capture_array()
+    logging.debug("Photo frame captured.")
 
-        # Add a timestamp overlay to the image
-        timestamp = strftime("%Y-%m-%d_%H-%M-%S")
-        cv2.putText(frame, timestamp, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+    # Add a timestamp overlay to the image
+    timestamp = strftime("%Y-%m-%d_%H-%M-%S")
+    cv2.putText(frame, timestamp, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-        # Save the photo
-        filename = f"photo_{timestamp}.jpg"
-        file_path = os.path.join('photos', filename)
-        os.makedirs('photos', exist_ok=True)
-        cv2.imwrite(file_path, frame)
-        logging.info(f"Photo captured and saved as {file_path}.")
+    # Save the photo
+    filename = f"photo_{timestamp}.jpg"
+    file_path = os.path.join('photos', filename)
+    os.makedirs('photos', exist_ok=True)
+    cv2.imwrite(file_path, frame)
+    logging.info(f"Photo captured and saved as {file_path}.")
 
-        # Reconfigure camera back to video mode
-        camera.configure(video_config)
-        camera.start()
-        logging.debug("Camera reconfigured for video mode.")
+    # Reconfigure camera back to video mode
+    camera.configure(video_config)
+    camera.start()
+    logging.debug("Camera reconfigured for video mode.")
 
-        return jsonify({"message": "Photo captured successfully!", "file": filename})
-    except Exception as e:
-        logging.error(f"Error capturing photo: {e}")
-        return jsonify({"error": "Failed to capture photo."}), 500
+    return jsonify({"message": "Photo captured successfully!", "file": filename})
+    #except Exception as e:
+    #    logging.error(f"Error capturing photo: {e}")
+    #    return jsonify({"error": "Failed to capture photo."}), 500
 
 @app.before_serving
 async def start_camera():
