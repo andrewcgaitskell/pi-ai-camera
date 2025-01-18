@@ -5,7 +5,7 @@ import base64
 import logging
 import asyncio
 import signal
-import os
+import subprocess
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -14,6 +14,17 @@ app = Quart(__name__)
 
 # Initialize the PiCamera2 instance
 camera = None
+
+async def reset_camera():
+    """Reset the camera hardware."""
+    try:
+        logging.info("Resetting camera hardware.")
+        subprocess.run(['sudo', 'modprobe', '-r', 'bcm2835_v4l2'], check=True)
+        await asyncio.sleep(1)
+        subprocess.run(['sudo', 'modprobe', 'bcm2835_v4l2'], check=True)
+        logging.info("Camera hardware reset completed.")
+    except Exception as e:
+        logging.error(f"Failed to reset camera hardware: {e}")
 
 async def safe_stop_camera():
     """Safely stop and release the camera."""
@@ -30,24 +41,19 @@ async def safe_stop_camera():
 async def initialize_camera():
     """Initialize and start the camera, resetting if needed."""
     global camera
-    retry_attempts = 5  # Maximum retries
-    for attempt in range(retry_attempts):
-        try:
-            if camera:
-                await safe_stop_camera()
-
+    try:
+        if not camera:
             camera = Picamera2()
             camera.configure(camera.create_preview_configuration())
             camera.start()
             logging.info("Camera started successfully.")
-            return
-        except Exception as e:
-            logging.error(f"Error initializing the camera: {e}")
-            await safe_stop_camera()
-            logging.info(f"Retrying to initialize the camera (Attempt {attempt + 1}/{retry_attempts}).")
-            await asyncio.sleep(1)
-    logging.critical("Failed to initialize the camera after multiple attempts.")
-    raise RuntimeError("Camera initialization failed.")
+    except Exception as e:
+        logging.error(f"Error initializing the camera: {e}")
+        await safe_stop_camera()
+        logging.info("Resetting the camera and retrying initialization.")
+        await reset_camera()
+        await asyncio.sleep(1)  # Allow time for the hardware to reset
+        await initialize_camera()  # Retry initialization
 
 def handle_exit_signal(loop):
     """Handle termination signals."""
