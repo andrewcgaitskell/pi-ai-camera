@@ -4,6 +4,7 @@ import cv2
 import base64
 import logging
 from time import sleep
+import cv2
 
 
 # Configure logging
@@ -42,6 +43,7 @@ async def video_feed():
         try:
             # Capture a frame
             frame = camera.capture_array()
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Encode frame as JPEG
             success, buffer = cv2.imencode('.jpg', frame)
