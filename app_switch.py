@@ -29,16 +29,17 @@ async def index():
 
 def generate_frames():
     """Generator for video feed frames."""
-    while True:
-        try:
+    try:
+        while True:
+            logging.debug("Generating a new frame for the video feed.")
             frame = picam2.capture_array("main")  # Capture frame in preview mode
             _, buffer = cv2.imencode('.jpg', frame)
             frame_bytes = buffer.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-        except Exception as e:
-            logging.error(f"Error generating video feed: {e}")
-            break
+    except Exception as e:
+        logging.error(f"Error generating video feed: {e}")
+        raise
 
 @app.route('/video_feed')
 async def video_feed():
