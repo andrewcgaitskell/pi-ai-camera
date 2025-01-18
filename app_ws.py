@@ -13,6 +13,17 @@ app = Quart(__name__)
 
 # Initialize the PiCamera2 instance
 camera = None
+camera = Picamera2()
+camera.configure(camera.create_preview_configuration(main={"format": "RGB888", "size": (640, 480)}))
+
+# Set white balance and other controls
+camera.set_controls({
+    "AwbEnable": True,  # Enable auto white balance
+    "Saturation": 1.2,  # Boost saturation slightly
+    "Contrast": 1.0,
+    "Brightness": 0.5
+})
+
 
 async def safe_stop_camera():
     """Safely stop and release the camera."""
@@ -39,7 +50,9 @@ async def video_feed():
     try:
         while True:
             # Capture a frame
+            # Capture and process frames
             frame = camera.capture_array()
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Convert for OpenCV processing
 
             # Encode frame as JPEG
             success, buffer = cv2.imencode('.jpg', frame)
