@@ -31,20 +31,25 @@ async def video_feed():
     encoder = JpegEncoder()
     try:
         while True:
+            # Capture a frame from the low-resolution stream
             request = picam2.capture_request()
-            buffer = request.lores_array  # Capture from low-res stream
-            request.release()
+            try:
+                # Use make_array to get the lores frame
+                buffer = request.make_array("lores")  # Explicitly get the low-res stream
+            finally:
+                request.release()
 
-            # Encode frame as JPEG
-            encoded_frame = encoder.encode(buffer)
-            if encoded_frame:
+            # Encode the frame as JPEG
+            success, encoded_frame = encoder.encode(buffer)
+            if success:
                 # Convert to Base64 for WebSocket transmission
                 frame_data = base64.b64encode(encoded_frame).decode('utf-8')
                 await websocket.send(frame_data)
     except asyncio.CancelledError:
-        logging.info("Video feed stopped.")
+        logging.info("WebSocket connection closed.")
     except Exception as e:
         logging.error(f"Error in video feed: {e}")
+
 
 @app.route('/capture_photo', methods=['POST'])
 async def capture_photo():
