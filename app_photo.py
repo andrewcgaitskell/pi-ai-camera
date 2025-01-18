@@ -80,5 +80,6 @@ async def release_camera():
 
 if __name__ == '__main__':
     # Run the Quart app
+    logging.basicConfig(level=logging.DEBUG)
     logging.info("Starting Quart app.")
     app.run(host='0.0.0.0', port=5000, debug=True)
