@@ -16,6 +16,7 @@ app = Quart(__name__)
 camera = Picamera2()
 executor = ThreadPoolExecutor()
 camera_lock = asyncio.Lock()
+video_feed_running = False  # Flag to track video feed status
 
 # Camera configurations
 photo_config = camera.create_still_configuration({"size": (4056, 3040)})
@@ -25,21 +26,23 @@ video_config = camera.create_video_configuration({"size": (640, 480)})
 async def index():
     """Render the homepage."""
     logging.info("Rendering index page.")
-    return await render_template('index_video.html')  # Adjust HTML to include video preview and capture button
+    return await render_template('index_video.html')
 
 @app.websocket('/video_feed')
 async def video_feed():
     """WebSocket endpoint to stream video frames."""
+    global video_feed_running
     async with camera_lock:
         try:
             logging.info("Starting video feed.")
+            video_feed_running = True
             camera.stop()
             await asyncio.get_event_loop().run_in_executor(executor, camera.configure, video_config)
             camera.start()
-            logging.debug("Camera configured for video feed.")
 
-            while True:
+            while video_feed_running:
                 try:
+                    # Capture a frame in video mode
                     frame = await asyncio.get_event_loop().run_in_executor(
                         executor, camera.capture_array
                     )
@@ -47,12 +50,14 @@ async def video_feed():
                         logging.warning("Failed to capture video frame.")
                         continue
 
+                    # Convert the frame to JPEG and Base64 encode
                     success, buffer = cv2.imencode('.jpg', frame)
                     if not success:
                         logging.warning("Failed to encode video frame.")
                         continue
-
                     frame_data = base64.b64encode(buffer).decode('utf-8')
+
+                    # Send the frame over WebSocket
                     await websocket.send(frame_data)
                 except asyncio.CancelledError:
                     logging.info("WebSocket connection closed by client.")
@@ -62,6 +67,7 @@ async def video_feed():
                     break
         finally:
             logging.info("Stopping video feed and reconfiguring for photo mode.")
+            video_feed_running = False
             camera.stop()
             await asyncio.get_event_loop().run_in_executor(executor, camera.configure, photo_config)
             camera.start()
@@ -69,21 +75,29 @@ async def video_feed():
 @app.route('/capture_photo', methods=['POST'])
 async def capture_photo():
     """Capture a high-resolution photo."""
+    global video_feed_running
     async with camera_lock:
         try:
+            if video_feed_running:
+                logging.info("Stopping video feed for photo capture.")
+                video_feed_running = False
+
             logging.info("Starting photo capture process.")
             camera.stop()
             await asyncio.get_event_loop().run_in_executor(executor, camera.configure, photo_config)
             camera.start()
 
+            # Capture high-resolution photo
             frame = await asyncio.get_event_loop().run_in_executor(executor, camera.capture_array)
             if frame is None:
                 logging.error("Failed to capture a valid frame.")
                 return jsonify({"error": "Capture failed."}), 500
 
+            # Add timestamp overlay
             timestamp = strftime("%Y-%m-%d_%H-%M-%S")
             cv2.putText(frame, timestamp, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
+            # Save photo
             filename = f"photo_{timestamp}.jpg"
             file_path = os.path.join('photos', filename)
             os.makedirs('photos', exist_ok=True)
@@ -93,6 +107,7 @@ async def capture_photo():
             logging.info(f"Photo saved at {file_path}.")
 
             return jsonify({"message": "Photo captured successfully!", "file": filename})
+
         except Exception as e:
             logging.error(f"Error capturing photo: {e}")
             return jsonify({"error": f"Failed to capture photo. Reason: {e}"}), 500
