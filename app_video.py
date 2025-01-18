@@ -39,25 +39,27 @@ async def video_feed():
             logging.debug("Camera configured for video feed.")
 
             while True:
-                # Capture a video frame
-                frame = await asyncio.get_event_loop().run_in_executor(
-                    executor, camera.capture_array
-                )
-                if frame is None:
-                    logging.warning("Failed to capture video frame.")
-                    continue
+                try:
+                    frame = await asyncio.get_event_loop().run_in_executor(
+                        executor, camera.capture_array
+                    )
+                    if frame is None:
+                        logging.warning("Failed to capture video frame.")
+                        continue
 
-                # Convert frame to JPEG and Base64 encode
-                success, buffer = cv2.imencode('.jpg', frame)
-                if not success:
-                    logging.warning("Failed to encode video frame.")
-                    continue
-                frame_data = base64.b64encode(buffer).decode('utf-8')
+                    success, buffer = cv2.imencode('.jpg', frame)
+                    if not success:
+                        logging.warning("Failed to encode video frame.")
+                        continue
 
-                # Send the frame over WebSocket
-                await websocket.send(frame_data)
-        except Exception as e:
-            logging.error(f"Error during video feed streaming: {e}")
+                    frame_data = base64.b64encode(buffer).decode('utf-8')
+                    await websocket.send(frame_data)
+                except asyncio.CancelledError:
+                    logging.info("WebSocket connection closed by client.")
+                    break
+                except Exception as e:
+                    logging.error(f"Error during video streaming: {e}")
+                    break
         finally:
             logging.info("Stopping video feed and reconfiguring for photo mode.")
             camera.stop()
@@ -70,25 +72,18 @@ async def capture_photo():
     async with camera_lock:
         try:
             logging.info("Starting photo capture process.")
-            
-            # Ensure the camera is configured for still capture
             camera.stop()
             await asyncio.get_event_loop().run_in_executor(executor, camera.configure, photo_config)
             camera.start()
 
-            # Capture high-resolution photo
             frame = await asyncio.get_event_loop().run_in_executor(executor, camera.capture_array)
             if frame is None:
                 logging.error("Failed to capture a valid frame.")
                 return jsonify({"error": "Capture failed."}), 500
 
-            logging.debug(f"Captured frame with shape: {frame.shape}")
-
-            # Add timestamp overlay
             timestamp = strftime("%Y-%m-%d_%H-%M-%S")
             cv2.putText(frame, timestamp, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
-            # Save photo
             filename = f"photo_{timestamp}.jpg"
             file_path = os.path.join('photos', filename)
             os.makedirs('photos', exist_ok=True)
@@ -98,7 +93,6 @@ async def capture_photo():
             logging.info(f"Photo saved at {file_path}.")
 
             return jsonify({"message": "Photo captured successfully!", "file": filename})
-
         except Exception as e:
             logging.error(f"Error capturing photo: {e}")
             return jsonify({"error": f"Failed to capture photo. Reason: {e}"}), 500
@@ -122,6 +116,5 @@ async def release_camera():
         logging.info("Camera released.")
 
 if __name__ == '__main__':
-    # Run the Quart app
     logging.info("Starting Quart app.")
     app.run(host='0.0.0.0', port=5000, debug=True)
