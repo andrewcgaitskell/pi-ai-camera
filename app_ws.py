@@ -5,6 +5,7 @@ import base64
 import logging
 import asyncio
 import signal
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -29,18 +30,24 @@ async def safe_stop_camera():
 async def initialize_camera():
     """Initialize and start the camera, resetting if needed."""
     global camera
-    try:
-        if not camera:
+    retry_attempts = 5  # Maximum retries
+    for attempt in range(retry_attempts):
+        try:
+            if camera:
+                await safe_stop_camera()
+
             camera = Picamera2()
             camera.configure(camera.create_preview_configuration())
             camera.start()
             logging.info("Camera started successfully.")
-    except Exception as e:
-        logging.error(f"Error initializing the camera: {e}")
-        await safe_stop_camera()  # Ensure the camera is stopped before retrying
-        logging.info("Retrying to initialize the camera.")
-        await asyncio.sleep(1)  # Avoid immediate retry to prevent recursion issues
-        await initialize_camera()  # Retry initialization
+            return
+        except Exception as e:
+            logging.error(f"Error initializing the camera: {e}")
+            await safe_stop_camera()
+            logging.info(f"Retrying to initialize the camera (Attempt {attempt + 1}/{retry_attempts}).")
+            await asyncio.sleep(1)
+    logging.critical("Failed to initialize the camera after multiple attempts.")
+    raise RuntimeError("Camera initialization failed.")
 
 def handle_exit_signal(loop):
     """Handle termination signals."""
