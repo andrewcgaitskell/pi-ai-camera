@@ -11,14 +11,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 
 app = Quart(__name__)
 
-# Initialize the PiCamera2 instance
-try:
-    camera = Picamera2()
-except:
-    camera.stop()
-    camera = None
-    wait(5)
-    camera = Picamera2()
+camera = Picamera2()
 
 camera.configure(camera.create_preview_configuration())
 camera.start()
