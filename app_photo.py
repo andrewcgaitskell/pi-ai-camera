@@ -31,7 +31,7 @@ camera.start()
 async def index():
     """Render the homepage."""
     logging.info("Rendering index page.")
-    return await render_template('index.html')
+    return await render_template('index_photo.html')
 
 @app.websocket('/video_feed')
 async def video_feed():
