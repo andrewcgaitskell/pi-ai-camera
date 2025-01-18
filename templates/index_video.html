@@ -1,32 +1,35 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Camera Preview</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Feed</title>
     <script>
         let ws;
         function startVideoFeed() {
-            ws = new WebSocket("ws://192.168.1.45:5000/video_feed");
+            ws = new WebSocket("ws://" + window.location.host + "/video_feed");
             ws.onmessage = (event) => {
                 const img = document.getElementById("videoPreview");
                 img.src = "data:image/jpeg;base64," + event.data;
             };
-        }
-
-        function stopVideoFeed() {
-            if (ws) ws.close();
+            ws.onerror = (error) => console.error("WebSocket error:", error);
+            ws.onclose = () => console.log("WebSocket connection closed.");
         }
 
         async function capturePhoto() {
-            const response = await fetch('/capture_photo', { method: 'POST' });
-            const data = await response.json();
-            alert(data.message || data.error);
+            try {
+                const response = await fetch('/capture_photo', { method: 'POST' });
+                const data = await response.json();
+                alert(data.message || data.error);
+            } catch (err) {
+                console.error("Error capturing photo:", err);
+            }
         }
     </script>
 </head>
-<body onload="startVideoFeed()" onunload="stopVideoFeed()">
-    <h1>Camera Preview</h1>
-    <img id="videoPreview" alt="Video Feed" style="width: 640px; height: 480px;">
+<body onload="startVideoFeed()">
+    <h1>Camera Video Feed</h1>
+    <img id="videoPreview" alt="Video Feed" style="width: 640px; height: 480px; border: 1px solid black;">
     <button onclick="capturePhoto()">Capture Photo</button>
 </body>
 </html>
