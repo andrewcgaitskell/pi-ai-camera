@@ -73,11 +73,16 @@ async def capture_photo():
         await asyncio.get_event_loop().run_in_executor(executor, camera.configure, photo_config)
         logging.debug("Camera configured for photo capture.")
 
-        # Capture a frame
+        # Capture a high-resolution frame
         frame = await asyncio.get_event_loop().run_in_executor(
             executor, camera.capture_array
         )
         logging.debug("Photo frame captured.")
+
+        # Check frame validity
+        if frame is None:
+            logging.error("Captured frame is None.")
+            raise ValueError("Failed to capture a valid frame.")
 
         # Add a timestamp overlay to the image
         timestamp = strftime("%Y-%m-%d_%H-%M-%S")
@@ -98,6 +103,12 @@ async def capture_photo():
         return jsonify({"message": "Photo captured successfully!", "file": filename})
     except Exception as e:
         logging.error(f"Error capturing photo: {e}")
+        # Attempt to recover the camera
+        try:
+            camera.configure(video_config)
+            camera.start()
+        except Exception as recovery_error:
+            logging.critical(f"Failed to recover camera: {recovery_error}")
         return jsonify({"error": f"Failed to capture photo. Reason: {e}"}), 500
 
 
