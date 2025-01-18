@@ -25,7 +25,7 @@ os.makedirs(CAPTURE_DIR, exist_ok=True)
 @app.route('/')
 async def index():
     """Render the main page."""
-    return await render_template('index.html')
+    return await render_template('index_switch.html')
 
 def generate_frames():
     """Generator for video feed frames."""
