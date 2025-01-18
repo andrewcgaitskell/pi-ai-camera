@@ -13,7 +13,8 @@ app = Quart(__name__)
 
 camera = Picamera2()
 
-# Configure the camera
+# Configure the camera for 12MP photo quality
+photo_config = camera.create_still_configuration({"size": (4056, 3040)})
 video_config = camera.create_video_configuration({"size": (1280, 720)})
 camera.configure(video_config)
 camera.set_controls({"AeEnable": True})
@@ -27,7 +28,7 @@ sleep(2)
 @app.route('/')
 async def index():
     """Render the homepage."""
-    return await render_template('index_photo.html')
+    return await render_template('index.html')
 
 @app.websocket('/video_feed')
 async def video_feed():
@@ -55,8 +56,11 @@ async def video_feed():
 
 @app.route('/capture_photo', methods=['POST'])
 async def capture_photo():
-    """Capture a timestamped photo."""
+    """Capture a timestamped photo with 12MP quality."""
     try:
+        # Reconfigure camera for still capture
+        camera.configure(photo_config)
+
         # Capture a frame
         frame = camera.capture_array()
 
@@ -69,6 +73,10 @@ async def capture_photo():
         file_path = os.path.join('photos', filename)
         os.makedirs('photos', exist_ok=True)
         cv2.imwrite(file_path, frame)
+
+        # Reconfigure camera back to video mode
+        camera.configure(video_config)
+        camera.start()
 
         logging.info(f"Photo captured and saved as {file_path}.")
         return jsonify({"message": "Photo captured successfully!", "file": filename})
