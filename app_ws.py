@@ -39,12 +39,13 @@ async def initialize_camera():
         logging.error(f"Error initializing the camera: {e}")
         await safe_stop_camera()  # Ensure the camera is stopped before retrying
         logging.info("Retrying to initialize the camera.")
+        await asyncio.sleep(1)  # Avoid immediate retry to prevent recursion issues
         await initialize_camera()  # Retry initialization
 
-def handle_exit_signal(loop, task):
+def handle_exit_signal(loop):
     """Handle termination signals."""
     logging.info("Received exit signal.")
-    loop.run_until_complete(task)
+    loop.create_task(safe_stop_camera())
 
 @app.route('/')
 async def index():
@@ -89,16 +90,14 @@ async def cleanup():
     await safe_stop_camera()
 
 if __name__ == '__main__':
-    # Create a cleanup task
     loop = asyncio.get_event_loop()
-    cleanup_task = asyncio.ensure_future(safe_stop_camera())
 
     # Attach signal handlers
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, handle_exit_signal, loop, cleanup_task)
+        loop.add_signal_handler(sig, lambda: handle_exit_signal(loop))
 
     # Run the Quart app
     try:
         app.run(host='0.0.0.0', port=5000, debug=True)
     finally:
-        loop.run_until_complete(cleanup_task)
+        loop.run_until_complete(safe_stop_camera())
