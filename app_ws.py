@@ -20,6 +20,8 @@ video_config = camera.create_video_configuration({"size": (1280, 720)})
 camera.configure(video_config)
 
 camera.set_controls({"AeEnable": False})
+camera.set_controls({"ExposureTime": 5000})
+camera.set_controls({"AnalogueGain": 1.0})  # Set gain to a lower value (e.g., 1.0)
 
 
 # Start the camera
