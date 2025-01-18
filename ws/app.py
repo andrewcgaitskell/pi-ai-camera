@@ -28,4 +28,5 @@ async def ws():
         connected_clients.remove(websocket._get_current_object())
 
 if __name__ == '__main__':
-    app.run()
+    # Run the Quart app
+    app.run(host='0.0.0.0', port=5000, debug=True)
