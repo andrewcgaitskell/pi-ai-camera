@@ -37,9 +37,14 @@ def initialize_camera():
             logging.info("Camera started successfully.")
     except Exception as e:
         logging.error(f"Error initializing the camera: {e}")
-        safe_stop_camera()  # Ensure the camera is stopped before retrying
+        asyncio.run(safe_stop_camera())  # Ensure the camera is stopped before retrying
         logging.info("Retrying to initialize the camera.")
         asyncio.run(initialize_camera())  # Retry initialization
+
+def handle_exit_signal(loop, task):
+    """Handle termination signals."""
+    logging.info("Received exit signal.")
+    loop.run_until_complete(task)
 
 @app.route('/')
 async def index():
