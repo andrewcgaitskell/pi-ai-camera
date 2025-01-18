@@ -1,6 +1,8 @@
 import os
 import datetime
-import keyboard  # Requires the 'keyboard' library
+import sys
+import termios
+import tty
 from picamera2 import Picamera2
 
 # Create an output folder to save the photos
@@ -18,9 +20,22 @@ picam2.start()
 
 print("Press 'c' to capture a photo or 'q' to quit.")
 
+def get_key():
+    """Reads a single character from standard input."""
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
+
 try:
     while True:
-        if keyboard.is_pressed('c'):
+        print("Awaiting input...")
+        key = get_key()
+        if key == 'c':
             # Generate a timestamped filename
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             file_path = os.path.join(output_folder, f"photo_{timestamp}.jpg")
@@ -29,7 +44,7 @@ try:
             picam2.switch_mode_and_capture_file(still_config, file_path)
             print(f"Photo captured and saved to {file_path}")
 
-        elif keyboard.is_pressed('q'):
+        elif key == 'q':
             print("Quitting the application.")
             break
 
