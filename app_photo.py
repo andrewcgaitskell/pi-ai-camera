@@ -73,16 +73,17 @@ async def capture_photo():
         await asyncio.get_event_loop().run_in_executor(executor, camera.configure, photo_config)
         logging.debug("Camera configured for photo capture.")
 
+        # Small delay to stabilize hardware
+        await asyncio.sleep(0.2)
+
         # Capture a high-resolution frame
         frame = await asyncio.get_event_loop().run_in_executor(
             executor, camera.capture_array
         )
-        logging.debug("Photo frame captured.")
-
-        # Check frame validity
         if frame is None:
-            logging.error("Captured frame is None.")
-            raise ValueError("Failed to capture a valid frame.")
+            logging.error("Failed to capture a valid frame.")
+            return jsonify({"error": "Capture failed."}), 500
+        logging.debug(f"Captured frame with shape: {frame.shape}")
 
         # Add a timestamp overlay to the image
         timestamp = strftime("%Y-%m-%d_%H-%M-%S")
@@ -92,8 +93,10 @@ async def capture_photo():
         filename = f"photo_{timestamp}.jpg"
         file_path = os.path.join('photos', filename)
         os.makedirs('photos', exist_ok=True)
-        cv2.imwrite(file_path, frame)
-        logging.info(f"Photo captured and saved as {file_path}.")
+        if not cv2.imwrite(file_path, frame):
+            logging.error(f"Failed to save photo at {file_path}.")
+            return jsonify({"error": "Failed to save photo."}), 500
+        logging.info(f"Photo successfully saved at {file_path}.")
 
         # Reconfigure camera back to video mode
         await asyncio.get_event_loop().run_in_executor(executor, camera.configure, video_config)
@@ -103,12 +106,6 @@ async def capture_photo():
         return jsonify({"message": "Photo captured successfully!", "file": filename})
     except Exception as e:
         logging.error(f"Error capturing photo: {e}")
-        # Attempt to recover the camera
-        try:
-            camera.configure(video_config)
-            camera.start()
-        except Exception as recovery_error:
-            logging.critical(f"Failed to recover camera: {recovery_error}")
         return jsonify({"error": f"Failed to capture photo. Reason: {e}"}), 500
 
 
