@@ -28,6 +28,7 @@ sleep(2)
 @app.route('/')
 async def index():
     """Render the homepage."""
+    logging.info("Rendering index page.")
     return await render_template('index_photo.html')
 
 @app.websocket('/video_feed')
@@ -58,11 +59,15 @@ async def video_feed():
 async def capture_photo():
     """Capture a timestamped photo with 12MP quality."""
     try:
+        logging.info("Starting photo capture process.")
+
         # Reconfigure camera for still capture
         camera.configure(photo_config)
+        logging.debug("Camera configured for photo capture.")
 
         # Capture a frame
         frame = camera.capture_array()
+        logging.debug("Photo frame captured.")
 
         # Add a timestamp overlay to the image
         timestamp = strftime("%Y-%m-%d_%H-%M-%S")
@@ -73,12 +78,13 @@ async def capture_photo():
         file_path = os.path.join('photos', filename)
         os.makedirs('photos', exist_ok=True)
         cv2.imwrite(file_path, frame)
+        logging.info(f"Photo captured and saved as {file_path}.")
 
         # Reconfigure camera back to video mode
         camera.configure(video_config)
         camera.start()
+        logging.debug("Camera reconfigured for video mode.")
 
-        logging.info(f"Photo captured and saved as {file_path}.")
         return jsonify({"message": "Photo captured successfully!", "file": filename})
     except Exception as e:
         logging.error(f"Error capturing photo: {e}")
@@ -104,4 +110,5 @@ async def release_camera():
 
 if __name__ == '__main__':
     # Run the Quart app
+    logging.info("Starting Quart app.")
     app.run(host='0.0.0.0', port=5000, debug=True)
