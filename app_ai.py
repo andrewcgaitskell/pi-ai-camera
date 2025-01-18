@@ -28,23 +28,24 @@ def generate_frames():
             # Capture a frame
             frame = camera.capture_array()
             if frame is None:
-                logging.error("Failed to read frame from the camera.")
-                break
-            
+                logging.warning("No frame captured. Retrying...")
+                continue
+
             # Encode the frame as JPEG
             success, buffer = cv2.imencode('.jpg', frame)
             if not success:
-                logging.error("Failed to encode frame as JPEG.")
+                logging.warning("Failed to encode frame. Retrying...")
                 continue
 
             frame = buffer.tobytes()
 
-            # Yield the frame as part of a multipart HTTP response
+            # Yield the frame as part of the response
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
         except Exception as e:
-            logging.error(f"Error generating frame: {e}")
+            logging.error(f"Error in frame generation: {e}")
             break
+
 
 
 @app.route('/')
