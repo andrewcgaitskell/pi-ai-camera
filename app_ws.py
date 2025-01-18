@@ -17,19 +17,9 @@ camera.configure(camera.create_preview_configuration())
 # Start the camera
 camera.start()
 
-# Adjust initial controls for better color rendering
 camera.set_controls({
-    "AwbEnable": False,           # Disable auto white balance for manual control
-    "ColourGains": (2.0, 1.5),    # Adjust red (2.0) and blue (1.5) gains
-    "ColourMatrix": [
-        1.5, 0.0, 0.0,           # Boost red channel
-        0.0, 1.0, 0.0,           # Keep green neutral
-        0.0, 0.0, 0.8            # Reduce blue influence
-    ],
-    "Saturation": 1.3,            # Increase saturation for more vivid colors
-    "Contrast": 1.2,              # Enhance contrast for better differentiation
-    "ExposureTime": 8000,         # Set exposure time in microseconds
-    "AnalogueGain": 1.0           # Lower gain to prevent oversaturation
+    "AwbEnable": False,         # Disable AWB
+    "ColourGains": (2.0, 1.2)   # Adjust red (2.0) and blue (1.2) gains
 })
 
 # Allow the camera to stabilize
