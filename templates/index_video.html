@@ -1,1 +1,32 @@
 
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Camera Preview</title>
+    <script>
+        let ws;
+        function startVideoFeed() {
+            ws = new WebSocket("ws://localhost:5000/video_feed");
+            ws.onmessage = (event) => {
+                const img = document.getElementById("videoPreview");
+                img.src = "data:image/jpeg;base64," + event.data;
+            };
+        }
+
+        function stopVideoFeed() {
+            if (ws) ws.close();
+        }
+
+        async function capturePhoto() {
+            const response = await fetch('/capture_photo', { method: 'POST' });
+            const data = await response.json();
+            alert(data.message || data.error);
+        }
+    </script>
+</head>
+<body onload="startVideoFeed()" onunload="stopVideoFeed()">
+    <h1>Camera Preview</h1>
+    <img id="videoPreview" alt="Video Feed" style="width: 640px; height: 480px;">
+    <button onclick="capturePhoto()">Capture Photo</button>
+</body>
+</html>
