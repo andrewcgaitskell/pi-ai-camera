@@ -1,30 +1,22 @@
-from quart import Quart, websocket, render_template, jsonify
+from quart import Quart, render_template, jsonify
 from picamera2 import Picamera2
 import cv2
-import base64
-import logging
-from time import strftime
 import os
+from time import strftime
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import logging
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Quart(__name__)
-
 camera = Picamera2()
-
-# ThreadPoolExecutor for blocking operations
 executor = ThreadPoolExecutor()
 
-# Configure the camera for 12MP photo quality
+# Configure camera for still photo capture
 photo_config = camera.create_still_configuration({"size": (4056, 3040)})
-video_config = camera.create_video_configuration({"size": (1280, 720)})
-camera.configure(video_config)
-camera.set_controls({"AeEnable": True})
-
-# Start the camera
+camera.configure(photo_config)
 camera.start()
 
 @app.route('/')
@@ -33,48 +25,11 @@ async def index():
     logging.info("Rendering index page.")
     return await render_template('index_photo.html')
 
-@app.websocket('/video_feed')
-async def video_feed():
-    """WebSocket endpoint to stream video frames."""
-    while True:
-        try:
-            # Capture a frame
-            frame = await asyncio.get_event_loop().run_in_executor(
-                executor, camera.capture_array
-            )
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-            # Encode frame as JPEG
-            success, buffer = cv2.imencode('.jpg', frame)
-            if not success:
-                logging.warning("Failed to encode frame.")
-                continue
-
-            # Convert to base64 to send over WebSocket
-            frame_data = base64.b64encode(buffer).decode('utf-8')
-
-            # Send the frame over WebSocket
-            await websocket.send(frame_data)
-        except Exception as e:
-            logging.error(f"Error during video feed streaming: {e}")
-            break
-
 @app.route('/capture_photo', methods=['POST'])
 async def capture_photo():
-    """Capture a timestamped photo with 12MP quality."""
+    """Capture a high-resolution photo."""
     try:
         logging.info("Starting photo capture process.")
-
-        # Stop the camera before reconfiguring
-        camera.stop()
-        logging.debug("Camera stopped for photo capture configuration.")
-
-        # Reconfigure camera for still capture
-        await asyncio.get_event_loop().run_in_executor(executor, camera.configure, photo_config)
-        logging.debug("Camera configured for photo capture.")
-
-        # Small delay to stabilize hardware
-        await asyncio.sleep(0.2)
 
         # Capture a high-resolution frame
         frame = await asyncio.get_event_loop().run_in_executor(
@@ -83,9 +38,10 @@ async def capture_photo():
         if frame is None:
             logging.error("Failed to capture a valid frame.")
             return jsonify({"error": "Capture failed."}), 500
+
         logging.debug(f"Captured frame with shape: {frame.shape}")
 
-        # Add a timestamp overlay to the image
+        # Add a timestamp overlay
         timestamp = strftime("%Y-%m-%d_%H-%M-%S")
         cv2.putText(frame, timestamp, (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
@@ -96,18 +52,13 @@ async def capture_photo():
         if not cv2.imwrite(file_path, frame):
             logging.error(f"Failed to save photo at {file_path}.")
             return jsonify({"error": "Failed to save photo."}), 500
-        logging.info(f"Photo successfully saved at {file_path}.")
 
-        # Reconfigure camera back to video mode
-        await asyncio.get_event_loop().run_in_executor(executor, camera.configure, video_config)
-        camera.start()
-        logging.debug("Camera reconfigured for video mode.")
-
+        logging.info(f"Photo saved at {file_path}.")
         return jsonify({"message": "Photo captured successfully!", "file": filename})
+
     except Exception as e:
         logging.error(f"Error capturing photo: {e}")
         return jsonify({"error": f"Failed to capture photo. Reason: {e}"}), 500
-
 
 @app.before_serving
 async def start_camera():
@@ -115,7 +66,7 @@ async def start_camera():
     global camera
     if not camera:
         camera = Picamera2()
-        camera.configure(camera.create_preview_configuration())
+        camera.configure(photo_config)
         camera.start()
         logging.info("Camera started.")
 
