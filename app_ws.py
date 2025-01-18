@@ -12,6 +12,7 @@ app = Quart(__name__)
 # Initialize the PiCamera2 instance
 camera = Picamera2()
 camera.configure(camera.create_preview_configuration())
+camera.set_controls({"AwbEnable": True})
 camera.start()
 
 @app.route('/')
