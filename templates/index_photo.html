@@ -4,6 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Camera App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        #video {
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
     <script>
         let ws;
 
@@ -13,12 +37,29 @@
                 const img = document.getElementById("video");
                 img.src = `data:image/jpeg;base64,${event.data}`;
             };
+
+            ws.onerror = () => {
+                console.error("WebSocket error.");
+                alert("Error connecting to the video feed. Please try refreshing the page.");
+            };
         }
 
         async function capturePhoto() {
-            const response = await fetch('/capture_photo', { method: 'POST' });
-            const result = await response.json();
-            alert(result.message);
+            try {
+                const response = await fetch('/capture_photo', { method: 'POST' });
+                if (!response.ok) {
+                    throw new Error('Failed to capture photo.');
+                }
+                const result = await response.json();
+                if (result.message) {
+                    alert(result.message);
+                } else {
+                    alert('Photo captured, but no message received from the server.');
+                }
+            } catch (error) {
+                console.error('Error capturing photo:', error);
+                alert('An error occurred while capturing the photo. Please try again.');
+            }
         }
 
         window.onload = startVideo;
@@ -27,6 +68,7 @@
 <body>
     <h1>Camera App</h1>
     <img id="video" alt="Live Video Feed" width="640" height="360" />
+    <br>
     <button onclick="capturePhoto()">Capture Photo</button>
 </body>
 </html>
