@@ -12,7 +12,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Directory to save captured photos
-CAPTURE_DIR = "/home/scanpi/photos"
+CAPTURE_DIR = "/home/pi/photos"
 os.makedirs(CAPTURE_DIR, exist_ok=True)
 
 # MJPEG Streaming Output Class
@@ -29,14 +29,18 @@ class StreamingOutput:
 
 # HTTP Request Handler for Web Page, Video Feed, and Photo Capture
 class StreamingHandler(BaseHTTPRequestHandler):
+    def __init__(self, *args, picam2=None, output=None, **kwargs):
+        self.picam2 = picam2
+        self.output = output
+        super().__init__(*args, **kwargs)
+
     def do_GET(self):
         if self.path == '/':
             # Serve the main HTML page
-            content = self.render_html_page()
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.end_headers()
-            self.wfile.write(content.encode("utf-8"))
+            self.wfile.write(self.render_html_page().encode("utf-8"))
         elif self.path == '/video_feed':
             # Serve the MJPEG video feed
             self.send_response(200)
@@ -44,9 +48,9 @@ class StreamingHandler(BaseHTTPRequestHandler):
             self.end_headers()
             try:
                 while True:
-                    with output.condition:
-                        output.condition.wait()
-                        frame = output.frame
+                    with self.output.condition:
+                        self.output.condition.wait()
+                        frame = self.output.frame
                     self.wfile.write(b'--frame\r\n')
                     self.wfile.write(b'Content-Type: image/jpeg\r\n\r\n')
                     self.wfile.write(frame)
@@ -63,7 +67,7 @@ class StreamingHandler(BaseHTTPRequestHandler):
                 logging.info(f"Capturing photo: {photo_path}")
 
                 # Capture and save the photo
-                picam2.switch_mode_and_capture_file(photo_path, picam2.create_still_configuration())
+                self.picam2.switch_mode_and_capture_file(photo_path, self.picam2.create_still_configuration())
                 
                 # Respond with success
                 self.send_response(200)
@@ -129,15 +133,14 @@ class StreamingHandler(BaseHTTPRequestHandler):
             <!-- Capture Photo Button -->
             <button onclick="capturePhoto()">Capture Photo</button>
             <script>
-                function capturePhoto() {{
-                    fetch('/capture_photo')
-                        .then(response => response.text())
-                        .then(message => {{
-                            alert(message);
-                        }})
-                        .catch(error => {{
-                            alert('Failed to capture photo: ' + error);
-                        }});
+                async function capturePhoto() {{
+                    try {{
+                        const response = await fetch('/capture_photo');
+                        const message = await response.text();
+                        alert(message);
+                    }} catch (error) {{
+                        alert('Failed to capture photo: ' + error);
+                    }}
                 }}
             </script>
         </body>
@@ -176,7 +179,7 @@ def main():
 
     # Set up the server
     address = ('', 5000)  # Serve on all interfaces, port 5000
-    server = ThreadedHTTPServer(address, StreamingHandler)
+    server = ThreadedHTTPServer(address, lambda *args, **kwargs: StreamingHandler(*args, picam2=picam2, output=output, **kwargs))
     logging.info("Starting server on http://0.0.0.0:5000...")
     try:
         server.serve_forever()
