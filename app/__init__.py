@@ -37,9 +37,12 @@ def generate_frames():
             frame_bytes = buffer.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+    except GeneratorExit:
+        logging.info("Client disconnected from video feed.")
     except Exception as e:
         logging.error(f"Error generating video feed: {e}")
         raise
+
 
 @app.route('/video_feed')
 async def video_feed():
