@@ -4,17 +4,91 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Camera Feed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            color: #333;
+            margin: 20px 0;
+        }
+        img {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            border: 2px solid black;
+            display: block;
+            margin: 0 auto 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #007bff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #error-message {
+            color: red;
+            margin: 20px 0;
+            display: none;
+        }
+        footer {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #777;
+        }
+    </style>
 </head>
 <body>
     <h1>Camera Feed</h1>
-    <img src="{{ url_for('video_feed') }}" alt="Video Feed" style="width: 100%; max-width: 640px; height: auto;">
-    <br>
+
+    <!-- Video Feed -->
+    <img src="{{ url_for('video_feed') }}" alt="Video Feed" id="video-feed">
+
+    <!-- Error Message -->
+    <div id="error-message">
+        <p>Unable to load the video feed. Please refresh the page or check your connection.</p>
+    </div>
+
+    <!-- Capture Photo Button -->
     <a href="{{ url_for('capture') }}">
         <button>Capture Photo</button>
     </a>
+
+    <!-- Last Captured Photo -->
     {% if capture_url %}
         <h2>Last Captured Photo</h2>
-        <img src="{{ capture_url }}" alt="Captured Photo" style="width: 100%; max-width: 640px; height: auto;">
+        <img src="{{ capture_url }}" alt="Captured Photo">
     {% endif %}
+
+    <footer>
+        <p>&copy; {{ current_year }} Camera Feed Application</p>
+    </footer>
+
+    <script>
+        // Handle video feed errors
+        const videoFeed = document.getElementById('video-feed');
+        const errorMessage = document.getElementById('error-message');
+
+        videoFeed.onerror = function () {
+            console.error("Video feed disconnected. Retrying...");
+            errorMessage.style.display = "block";
+
+            // Retry connection after 1 second
+            setTimeout(() => {
+                videoFeed.src = "{{ url_for('video_feed') }}" + "?" + new Date().getTime();
+                errorMessage.style.display = "none";
+            }, 1000);
+        };
+    </script>
 </body>
 </html>
