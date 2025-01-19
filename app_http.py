@@ -5,9 +5,15 @@ import io
 import threading
 from time import sleep
 import logging
+import os
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Directory to save captured photos
+CAPTURE_DIR = "/home/pi/photos"
+os.makedirs(CAPTURE_DIR, exist_ok=True)
 
 # MJPEG Streaming Output Class
 class StreamingOutput:
@@ -21,10 +27,18 @@ class StreamingOutput:
             self.frame = buf
             self.condition.notify_all()
 
-# HTTP Request Handler for MJPEG Streaming
+# HTTP Request Handler for Web Page, Video Feed, and Photo Capture
 class StreamingHandler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path == '/video_feed':
+        if self.path == '/':
+            # Serve the main HTML page
+            content = self.render_html_page()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(content.encode("utf-8"))
+        elif self.path == '/video_feed':
+            # Serve the MJPEG video feed
             self.send_response(200)
             self.send_header('Content-type', 'multipart/x-mixed-replace; boundary=frame')
             self.end_headers()
@@ -41,9 +55,94 @@ class StreamingHandler(BaseHTTPRequestHandler):
                 logging.info("Client disconnected from video feed.")
             except Exception as e:
                 logging.error(f"Streaming error: {e}")
+        elif self.path == '/capture_photo':
+            # Handle photo capture
+            try:
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                photo_path = os.path.join(CAPTURE_DIR, f"photo_{timestamp}.jpg")
+                logging.info(f"Capturing photo: {photo_path}")
+
+                # Capture and save the photo
+                picam2.switch_mode_and_capture_file(photo_path, picam2.create_still_configuration())
+                
+                # Respond with success
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(f"Photo saved: {photo_path}".encode("utf-8"))
+            except Exception as e:
+                logging.error(f"Error capturing photo: {e}")
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(b"Error capturing photo")
         else:
             self.send_error(404)
             self.end_headers()
+
+    def render_html_page(self):
+        """Render the HTML page for the web interface."""
+        return f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Camera Feed</title>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    text-align: center;
+                    background-color: #f4f4f9;
+                    margin: 0;
+                    padding: 0;
+                }}
+                h1 {{
+                    color: #333;
+                    margin: 20px 0;
+                }}
+                img {{
+                    width: 100%;
+                    max-width: 640px;
+                    height: auto;
+                    border: 2px solid black;
+                    margin: 0 auto 20px;
+                    display: block;
+                }}
+                button {{
+                    padding: 10px 20px;
+                    font-size: 16px;
+                    color: white;
+                    background-color: #007bff;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                }}
+                button:hover {{
+                    background-color: #0056b3;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Camera Feed</h1>
+            <!-- Live Video Feed -->
+            <img src="/video_feed" alt="Video Feed">
+            <!-- Capture Photo Button -->
+            <button onclick="capturePhoto()">Capture Photo</button>
+            <script>
+                function capturePhoto() {{
+                    fetch('/capture_photo')
+                        .then(response => response.text())
+                        .then(message => {{
+                            alert(message);
+                        }})
+                        .catch(error => {{
+                            alert('Failed to capture photo: ' + error);
+                        }});
+                }}
+            </script>
+        </body>
+        </html>
+        """
 
 # Threaded HTTP Server
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
