@@ -12,7 +12,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Directory to save captured photos
-CAPTURE_DIR = "/home/pi/photos"
+CAPTURE_DIR = "/home/scanpi/photos"
 os.makedirs(CAPTURE_DIR, exist_ok=True)
 
 # MJPEG Streaming Output Class
