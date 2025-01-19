@@ -65,10 +65,10 @@ class StreamingHandler(BaseHTTPRequestHandler):
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 photo_path = os.path.join(CAPTURE_DIR, f"photo_{timestamp}.jpg")
                 logging.info(f"Capturing photo: {photo_path}")
-
-                # Capture and save the photo
-                self.picam2.switch_mode_and_capture_file(photo_path, self.picam2.create_still_configuration())
-                
+        
+                # Switch to still configuration and capture the photo in JPEG format
+                self.picam2.switch_mode_and_capture_file(photo_path, self.picam2.create_still_configuration(main={"format": "jpeg"}))
+        
                 # Respond with success
                 self.send_response(200)
                 self.send_header("Content-Type", "text/plain")
@@ -79,6 +79,7 @@ class StreamingHandler(BaseHTTPRequestHandler):
                 self.send_response(500)
                 self.end_headers()
                 self.wfile.write(b"Error capturing photo")
+
         else:
             self.send_error(404)
             self.end_headers()
