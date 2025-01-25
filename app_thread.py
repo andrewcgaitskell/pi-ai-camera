@@ -27,16 +27,17 @@ async def ws():
 
 @app.route("/")
 async def index():
-    return await render_template("index_thread.html")
+    return await render_template("index.html")
 
 @app.route("/capture", methods=["POST"])
 async def capture():
     global counter, captured_numbers, lock
-    async with asyncio.to_thread(lock.acquire):
-        try:
+    # Use a thread-safe mechanism to avoid locking issues
+    def safe_capture():
+        with lock:
             captured_numbers.append(counter)
-        finally:
-            lock.release()
+
+    await asyncio.to_thread(safe_capture)
     return "", 204
 
 if __name__ == "__main__":
