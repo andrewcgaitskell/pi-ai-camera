@@ -27,7 +27,7 @@ async def ws():
 
 @app.route("/")
 async def index():
-    return await render_template("index.html")
+    return await render_template("index_thread.html")
 
 @app.route("/capture", methods=["POST"])
 async def capture():
