@@ -59,7 +59,7 @@ async def capture():
 
 @app.route("/")
 async def index():
-    return await render_template("thread_video_index.html")
+    return await render_template("thread_video_index_working.html")
 
 if __name__ == "__main__":
     # Start the video stream thread
