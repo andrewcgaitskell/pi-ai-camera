@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Video Stream with Controls</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f8f9fa;
+        }
+        #video-stream {
+            border: 2px solid #000;
+            width: 640px;
+            height: 480px;
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #28a745;
+        }
+    </style>
+    <script>
+        let socket;
+
+        window.onload = () => {
+            const videoElement = document.getElementById("video-stream");
+            const statusElement = document.getElementById("status");
+
+            // Connect to the WebSocket
+            socket = new WebSocket(`ws://${window.location.host}/ws`);
+
+            // Handle incoming video frames
+            socket.onmessage = (event) => {
+                const blob = new Blob([event.data], { type: "image/jpeg" });
+                videoElement.src = URL.createObjectURL(blob);
+            };
+
+            // Toggle ROI mode
+            document.getElementById("toggle-roi").onclick = async () => {
+                const response = await fetch("/toggle_roi", { method: "POST" });
+                if (response.ok) {
+                    statusElement.innerText = "Toggled ROI mode!";
+                } else {
+                    statusElement.innerText = "Failed to toggle ROI mode.";
+                }
+                setTimeout(() => {
+                    statusElement.innerText = "";
+                }, 3000);
+            };
+
+            // Capture Photo
+            document.getElementById("capture-photo").onclick = async () => {
+                statusElement.innerText = "Capturing photo...";
+                const response = await fetch("/capture", { method: "POST" });
+                if (response.ok) {
+                    statusElement.innerText = "Photo captured successfully!";
+                } else {
+                    statusElement.innerText = "Failed to capture photo.";
+                }
+                setTimeout(() => {
+                    statusElement.innerText = "";
+                }, 3000);
+            };
+        };
+    </script>
+</head>
+<body>
+    <h1>Live Video Stream</h1>
+    <img id="video-stream" alt="Live Video Stream">
+    <button id="toggle-roi">Toggle ROI / Full Frame</button>
+    <button id="capture-photo">Capture Photo</button>
+    <div id="status"></div>
+</body>
+</html>
