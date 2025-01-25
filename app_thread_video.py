@@ -44,7 +44,7 @@ async def ws():
 
 @app.route("/")
 async def index():
-    return await render_template("index.html")
+    return await render_template("thread_video_index.html")
 
 @app.route("/video_feed")
 async def video_feed():
