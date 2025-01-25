@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Stream</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        video {
+            border: 2px solid #000;
+            width: 640px;
+            height: 480px;
+        }
+    </style>
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        const videoElement = document.createElement("img");
+
+        ws.onmessage = (event) => {
+            const blob = new Blob([event.data], { type: "image/jpeg" });
+            videoElement.src = URL.createObjectURL(blob);
+        };
+
+        window.onload = () => {
+            const videoContainer = document.getElementById("video-container");
+            videoContainer.appendChild(videoElement);
+        };
+    </script>
+</head>
+<body>
+    <h1>Live Video Stream</h1>
+    <div id="video-container"></div>
+</body>
+</html>
