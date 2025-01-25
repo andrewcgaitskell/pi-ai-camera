@@ -3,37 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Stream and Captured Photos</title>
+    <title>Live Video Stream with Photo Capture</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f8f9fa;
+        }
+        #video-stream {
+            border: 2px solid #000;
+            width: 640px;
+            height: 480px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #28a745;
+        }
+    </style>
     <script>
         let socket;
 
         window.onload = () => {
-            // Connect to WebSocket
+            const videoElement = document.getElementById("video-stream");
+            const statusElement = document.getElementById("status");
+
+            // Connect to the WebSocket
             socket = new WebSocket(`ws://${window.location.host}/ws`);
 
-            // Update the latest captured photo
+            // Handle incoming video frames
             socket.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                if (data.latest_photo) {
-                    document.getElementById("latest-photo").src = data.latest_photo;
+                const blob = new Blob([event.data], { type: "image/jpeg" });
+                videoElement.src = URL.createObjectURL(blob);
+            };
+
+            // Function to capture a photo
+            document.getElementById("capture-button").onclick = async () => {
+                statusElement.innerText = "Capturing photo...";
+                const response = await fetch("/capture", { method: "POST" });
+                if (response.ok) {
+                    statusElement.innerText = "Photo captured successfully!";
+                } else {
+                    statusElement.innerText = "Failed to capture photo.";
                 }
+                setTimeout(() => {
+                    statusElement.innerText = "";
+                }, 3000);
             };
         };
-
-        // Capture the current video frame
-        async function capturePhoto() {
-            await fetch("/capture", { method: "POST" });
-        }
     </script>
 </head>
 <body>
-    <h1>Video Stream</h1>
-    <img id="video-stream" src="/video_feed" alt="Video Stream" style="width: 100%; max-width: 600px; border: 1px solid #000;">
-
-    <h2>Capture Photo</h2>
-    <button onclick="capturePhoto()">Capture Photo</button>
-
-    <h2>Latest Captured Photo</h2>
-    <img id="latest-photo" src="" alt="Latest Captured Photo" style="width: 100%; max-width: 600px; border: 1px solid #000;">
+    <h1>Live Video Stream</h1>
+    <img id="video-stream" alt="Live Video Stream">
+    <button id="capture-button">Capture Photo</button>
+    <div id="status"></div>
 </body>
 </html>
