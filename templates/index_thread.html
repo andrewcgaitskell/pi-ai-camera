@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Counter WebSocket</title>
+    <script>
+        let socket;
+        window.onload = () => {
+            // Connect to WebSocket
+            socket = new WebSocket(`ws://${window.location.host}/ws`);
+
+            // Update UI when receiving data
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                document.getElementById("counter").innerText = `Counter: ${data.counter}`;
+                const capturedList = document.getElementById("capturedNumbers");
+                capturedList.innerHTML = "";
+                data.captured_numbers.forEach((num) => {
+                    const li = document.createElement("li");
+                    li.innerText = num;
+                    capturedList.appendChild(li);
+                });
+            };
+        };
+
+        // Capture current counter value
+        async function captureCounter() {
+            await fetch("/capture", { method: "POST" });
+        }
+    </script>
+</head>
+<body>
+    <h1>Real-Time Counter</h1>
+    <p id="counter">Counter: 0</p>
+    <button onclick="captureCounter()">Capture Counter</button>
+    <h2>Captured Numbers</h2>
+    <ul id="capturedNumbers"></ul>
+</body>
+</html>
