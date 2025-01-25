@@ -22,7 +22,8 @@ logging.basicConfig(level=logging.INFO)
 
 # Initialize Picamera2
 picam2 = Picamera2()
-picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))
+## picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))
+picam2.configure(picam2.create_video_configuration(main={"size": (1280, 960)}))  # Doubled resolution
 picam2.start()
 
 # Function to capture video frames
@@ -49,7 +50,8 @@ async def capture():
         with lock:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             photo_path = os.path.join(photo_dir, f"photo_{timestamp}.jpg")
-            capture_config = picam2.create_still_configuration()
+            #capture_config = picam2.create_still_configuration()
+            capture_config = picam2.create_still_configuration(main={"size": (4056, 3040)})  # Full 12MP resolution
             array = picam2.switch_mode_and_capture_array(capture_config, "main")
             cv2.imwrite(photo_path, array)
             logging.info(f"Photo saved: {photo_path}")
