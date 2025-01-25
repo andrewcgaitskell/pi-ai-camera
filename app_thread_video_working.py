@@ -14,7 +14,7 @@ app = Quart(__name__)
 # Global variables
 video_frame = None
 lock = threading.Lock()
-photo_dir = "./photos"
+photo_dir = "/home/scanpi/photos"
 os.makedirs(photo_dir, exist_ok=True)
 
 # Initialize logging
