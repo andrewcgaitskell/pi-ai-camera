@@ -15,7 +15,7 @@ app = Quart(__name__)
 video_frame = None
 use_roi = False  # Switch for ROI or full frame
 lock = threading.Lock()
-photo_dir = "./photos"
+photo_dir = "/home/scanpi/photos"
 os.makedirs(photo_dir, exist_ok=True)
 
 # Initialize logging
