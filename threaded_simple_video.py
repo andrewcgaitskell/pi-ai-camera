@@ -3,6 +3,7 @@ import threading
 import time
 from picamera2 import Picamera2, Preview
 import cv2
+import asyncio
 
 # Create a Quart app instance
 app = Quart(__name__)
