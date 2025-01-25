@@ -1,16 +1,12 @@
-from quart import Quart, websocket, render_template, jsonify
+from quart import Quart, websocket, render_template
 import threading
 import time
-import asyncio
+from picamera2 import Picamera2, Preview
 import cv2
+import asyncio
 from datetime import datetime
 import os
 import logging
-from picamera2 import Picamera2
-
-# Initialize Picamera2
-picam2 = Picamera2()
-logging.basicConfig(level=logging.INFO)
 
 # Create a Quart app instance
 app = Quart(__name__)
@@ -18,56 +14,52 @@ app = Quart(__name__)
 # Global variables
 video_frame = None
 lock = threading.Lock()
-photo_dir = "/home/scanpi/photos"
+photo_dir = "./photos"
 os.makedirs(photo_dir, exist_ok=True)
+
+# Initialize logging
+logging.basicConfig(level=logging.INFO)
+
+# Initialize Picamera2
+picam2 = Picamera2()
+picam2.configure(picam2.create_video_configuration(main={"size": (640, 480)}))
+picam2.start()
 
 # Function to capture video frames
 def video_stream():
     global video_frame
-    cap = cv2.VideoCapture(0)  # Use the default camera
     while True:
-        ret, frame = cap.read()
-        if ret:
-            _, buffer = cv2.imencode('.jpg', frame)
-            video_frame = buffer.tobytes()
+        frame = picam2.capture_array()
+        _, buffer = cv2.imencode('.jpg', frame)
+        video_frame = buffer.tobytes()
         time.sleep(0.03)  # Approx. 30 FPS
 
 @app.websocket("/ws")
 async def ws():
-    latest_photo = None
-    while True:
-        if os.path.exists(photo_dir):
-            photos = sorted(os.listdir(photo_dir))
-            latest_photo = os.path.join(photo_dir, photos[-1]) if photos else None
-        await websocket.send_json({"latest_photo": latest_photo})
-        await asyncio.sleep(1)
-
-@app.route("/")
-async def index():
-    return await render_template("thread_video_index.html")
-
-@app.route("/video_feed")
-async def video_feed():
     global video_frame
-    if video_frame is None:
-        return "", 204
-    return await jsonify({"frame": video_frame})
+    while True:
+        if video_frame:
+            await websocket.send(video_frame)
+        await asyncio.sleep(0.03)
 
 @app.route("/capture", methods=["POST"])
 async def capture():
-    global lock
     # Use a thread-safe mechanism to avoid locking issues
     def safe_capture():
         with lock:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            photo_name = os.path.join(photo_dir, f"photo_{timestamp}.jpg")
+            photo_path = os.path.join(photo_dir, f"photo_{timestamp}.jpg")
             capture_config = picam2.create_still_configuration()
             array = picam2.switch_mode_and_capture_array(capture_config, "main")
-            cv2.imwrite(photo_name, array)
-            logging.info(f"Photo saved: {photo_name}")
+            cv2.imwrite(photo_path, array)
+            logging.info(f"Photo saved: {photo_path}")
 
     await asyncio.to_thread(safe_capture)
     return "", 204
+
+@app.route("/")
+async def index():
+    return await render_template("thread_video_index.html")
 
 if __name__ == "__main__":
     # Start the video stream thread
