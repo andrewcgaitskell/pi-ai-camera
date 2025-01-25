@@ -78,7 +78,7 @@ async def capture():
 
 @app.route("/")
 async def index():
-    return await render_template("index.html")
+    return await render_template("index_roi.html")
 
 if __name__ == "__main__":
     # Start the video stream thread
